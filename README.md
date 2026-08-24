@@ -14,22 +14,46 @@ really ran.
 
 ## Getting it
 
-There is no download yet — you build the `.exe` once, then never need the
-toolchain again. **Windows 10/11, Node 18+:**
+You build it once, then never need the toolchain again. **Node 18+:**
 
 ```bash
 git clone https://github.com/AnSa30-06/engineer-agent.git
 ```
 
+**Windows 10/11** — produces `dist\Engineer.exe`, ~165 MB, self-contained:
+
 ```bash
 cd engineer-agent && npm install && npm run vendor && npm run dist
 ```
 
-`npm run vendor` bundles the speech-recognition runtime (~90 MB, not committed —
-it is generated). `npm run dist` produces **`dist\Engineer.exe`**, ~158 MB and
-self-contained.
+**macOS** — produces `dist/Engineer-arm64.dmg` (and `-x64` for Intel):
 
-To run it from source instead, without packaging: `npm start`.
+```bash
+cd engineer-agent && npm install && npm run vendor && npm run dist:mac
+```
+
+`npm run vendor` bundles the speech-recognition runtime (~90 MB, not committed —
+it is generated). To run from source without packaging: `npm start`.
+
+### A note for macOS
+
+**Building it yourself needs no Apple Developer account and shows no warnings.**
+Gatekeeper only objects to files carrying the `com.apple.quarantine` flag, which
+is set by your *browser* on download — a build you produced locally never has it.
+
+A `.dmg` **downloaded** from the [releases page](https://github.com/AnSa30-06/engineer-agent/releases)
+is a different matter: it is signed ad-hoc and not notarized, so macOS will
+refuse it once. Open **System Settings → Privacy & Security**, find the blocked
+app and click **Open Anyway** (on macOS 14 and earlier, right-click the app →
+Open). Or strip the flag directly:
+
+```bash
+xattr -d com.apple.quarantine /Applications/Engineer.app
+```
+
+⚠️ **The mac build has never been run by anyone.** It is produced by CI on a
+macOS runner and the artifact is real, but no one has yet watched the overlay
+behave on a Mac — see [Known limits](#known-limits).
 
 ---
 
@@ -206,7 +230,14 @@ build.
 
 ## Known limits
 
-- **Windows 10/11 only.** No macOS or Linux build.
+- **Windows is the only platform anyone has actually used it on.** There is now
+  a macOS build, produced by CI, and the platform-specific pieces are handled —
+  settings go to `~/Library/Application Support`, the Dock icon is suppressed,
+  the overlay is set to stay visible over fullscreen Spaces, and the microphone
+  permission string is declared. **None of that has been observed working.** The
+  parts most likely to need a second pass are the ones that can only be judged
+  by looking: how a transparent always-on-top window behaves over Mission
+  Control, and whether it steals focus. No Linux build.
 - **He takes a few seconds to answer.** A warm conversational turn is roughly
   4-5 seconds run from source and 7-8 seconds from the packaged executable.
   Measured on this machine, that is almost entirely round-trip latency to the

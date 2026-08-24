@@ -23,6 +23,12 @@ extraResources: []
 # the asar archive. The wasm the speech model runs on must also be a real file.
 asarUnpack:
   - "node_modules/@anthropic-ai/claude-agent-sdk/**"
+  # The CLI is a native binary in a per-platform package, and npm places that
+  # package EITHER nested under the SDK or hoisted beside it depending on the
+  # platform and the install. The glob above only catches the nested case, and
+  # the miss is invisible until a packaged build tries to spawn a file that is
+  # still inside the asar ("exists but failed to launch"). Catch both.
+  - "node_modules/@anthropic-ai/claude-agent-sdk-*/**"
   - "src/sprite/vendor/**"
 
 win:
@@ -36,6 +42,28 @@ win:
 portable:
   artifactName: Engineer.exe
   unicode: true
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  icon: build/icon.png
+  category: public.app-category.developer-tools
+  # The overlay has no Dock icon (app.dock.hide()), which is what LSUIElement
+  # declares to the system as well.
+  extendInfo:
+    LSUIElement: 1
+    # macOS refuses microphone access outright without a stated reason, and the
+    # refusal is silent from the app's side — it just never receives audio.
+    NSMicrophoneUsageDescription: Engineer listens to you so you can talk to him instead of typing.
+  # No Apple Developer account is involved: the app is signed ad-hoc so it runs
+  # on Apple Silicon, and is not notarized. Building it yourself carries no
+  # quarantine flag, so Gatekeeper does not stand in the way. A DOWNLOADED build
+  # is quarantined and needs Privacy & Security -> Open Anyway once (see README).
+  identity: null
+
+dmg:
+  artifactName: Engineer-${arch}.dmg
 
 compression: maximum
 npmRebuild: false

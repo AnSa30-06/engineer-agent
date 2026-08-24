@@ -1,0 +1,64 @@
+# Builds the macOS app.
+#
+# This exists because electron-builder cannot cross-compile a mac target from
+# Windows, and Windows is where this project is developed. GitHub's macOS
+# runners are free for public repositories, so CI is the only place a mac build
+# happens at all.
+#
+# The result is signed ad-hoc (no Apple Developer account, no notarization), so
+# a DOWNLOADED .dmg carries a quarantine flag and needs one trip through
+# System Settings -> Privacy & Security -> Open Anyway. Building it yourself
+# locally carries no such flag. See the README.
+
+name: mac build
+
+on:
+  workflow_dispatch:          # build on demand
+  push:
+    tags: ['v*']              # and for every released version
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write         # to attach the .dmg to a release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The speech-recognition runtime is bundled, not committed (~90 MB).
+      - name: Bundle the speech runtime
+        run: npm run vendor
+
+      # Cheap, and it catches a port that broke the shared code paths.
+      - name: Tests
+        run: npm test
+
+      - name: Build the mac app
+        run: npm run dist:mac
+
+      # Fail loudly rather than publishing an empty release: electron-builder
+      # can exit 0 having produced nothing if a target is misconfigured.
+      - name: Check the artifacts exist
+        run: |
+          ls -la dist/*.dmg
+          test "$(ls dist/*.dmg | wc -l)" -ge 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Engineer-mac
+          path: dist/*.dmg
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg

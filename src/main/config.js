@@ -1,5 +1,7 @@
 /**
- * Configuration: a single JSON file under %APPDATA%\engineer-agent\.
+ * Configuration: a single JSON file in the per-user application data directory
+ * — %APPDATA%\engineer-agent\ on Windows, ~/Library/Application Support/
+ * engineer-agent/ on macOS.
  *
  * Secrets are never committed and never hard-coded. ANTHROPIC_API_KEY from the
  * environment always wins over the stored value, so you can run the app without
@@ -9,7 +11,18 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DIR = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'engineer-agent');
+/**
+ * Where Electron would put userData, worked out without importing Electron:
+ * the test suite requires this module under plain node, so `app.getPath` is not
+ * available here. These are the same locations Electron itself uses.
+ */
+function appDataRoot(platform = process.platform) {
+  if (platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support');
+  if (platform === 'win32') return process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+}
+
+const DIR = path.join(appDataRoot(), 'engineer-agent');
 const FILE = path.join(DIR, 'config.json');
 
 const DEFAULTS = {
@@ -62,4 +75,4 @@ const apiKey = () => process.env.ANTHROPIC_API_KEY || load().apiKey || '';
 
 const paths = { dir: DIR, file: FILE, handoffs: path.join(DIR, 'handoffs'), logs: path.join(DIR, 'logs') };
 
-module.exports = { load, save, apiKey, paths, DEFAULTS };
+module.exports = { load, save, apiKey, paths, appDataRoot, DEFAULTS };

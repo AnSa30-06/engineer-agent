@@ -406,6 +406,20 @@ asyncTest('frames are transparent PNGs at the normalized size', async () => {
     assert.equal(config.apiKey(), 'sk-ant-from-env');
     if (old === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = old;
   });
+  // Settings land in the wrong place silently if this is wrong, and it cannot
+  // be checked by running the app anywhere but on the platform in question.
+  test('settings go to the right per-user directory on each platform', () => {
+    const os = require('os');
+    assert.equal(
+      config.appDataRoot('darwin'),
+      path.join(os.homedir(), 'Library', 'Application Support'),
+      'macOS settings must not go to an AppData path'
+    );
+    assert.ok(/AppData/.test(config.appDataRoot('win32')) || process.env.APPDATA,
+      'Windows settings belong under APPDATA');
+    assert.notEqual(config.appDataRoot('darwin'), config.appDataRoot('win32'));
+  });
+
   test('the default voice is Andrew (section 10)', () => {
     assert.equal(config.DEFAULTS.voice, 'en-US-AndrewNeural');
     assert.equal(require('../src/main/tts').DEFAULT_VOICE, 'en-US-AndrewNeural');

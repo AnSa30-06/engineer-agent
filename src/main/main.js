@@ -72,7 +72,10 @@ function createSprite() {
     },
   });
   spriteWin.setAlwaysOnTop(true, 'screen-saver');
-  spriteWin.setVisibleOnAllWorkspaces(true);
+  // visibleOnFullScreen is macOS-only and ignored elsewhere. Without it the
+  // engineer vanishes the moment the user enters a fullscreen Space, which for
+  // an overlay that is meant to always be there reads as the app crashing.
+  spriteWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   wireConsole(spriteWin, 'sprite');
   spriteWin.loadFile(path.join(__dirname, '..', 'sprite', 'index.html'));
   spriteWin.once('ready-to-show', () => {
@@ -611,6 +614,12 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.whenReady().then(() => {
   const logFile = openLogFile();
   core.log({ kind: 'boot', human: null, technical: `engineer-agent starting — electron ${process.versions.electron}, log ${logFile}` });
+
+  // skipTaskbar has no effect on macOS, so without this the engineer gets a
+  // Dock icon and an app menu — a whole application around a character who is
+  // supposed to be the only thing on screen. Hiding the Dock icon also makes
+  // this an accessory app, which is what an overlay should be.
+  if (process.platform === 'darwin') app.dock?.hide();
 
   for (const issue of llm.preflight()) {
     core.log({

@@ -1,0 +1,42 @@
+appId: com.engineeragent.desktop
+productName: Engineer
+copyright: MIT
+
+directories:
+  output: dist
+  buildResources: build
+
+# Only two runtime dependencies ship: the Claude Agent SDK (which carries its own
+# CLI, so the user needs neither Node nor Claude Code installed) and ws (for Edge
+# TTS). transformers.js and onnxruntime are build-time only — they are already
+# bundled into src/sprite/vendor by `npm run vendor`.
+files:
+  - package.json
+  - src/**/*
+  - assets/engineer/**/*
+  - "!**/*.map"
+  - "!src/**/*.test.js"
+
+extraResources: []
+
+# The agent SDK spawns its CLI as a real child process, so it cannot live inside
+# the asar archive. The wasm the speech model runs on must also be a real file.
+asarUnpack:
+  - "node_modules/@anthropic-ai/claude-agent-sdk/**"
+  - "src/sprite/vendor/**"
+
+win:
+  target:
+    - target: portable
+      arch: [x64]
+  icon: build/icon.png
+  artifactName: Engineer.exe
+  legalTrademarks: ""
+
+portable:
+  artifactName: Engineer.exe
+  unicode: true
+
+compression: maximum
+npmRebuild: false
+buildDependenciesFromSource: false

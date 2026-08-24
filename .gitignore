@@ -1,0 +1,6 @@
+node_modules/
+dist/
+src/sprite/vendor/
+*.log
+overlay-check.png
+pkg-e2e.log

@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src file: data:; script-src 'self'; style-src 'self';" />
+  <link rel="stylesheet" href="panel.css" />
+  <title>Engineer — controls</title>
+</head>
+<body>
+  <header id="titlebar">
+    <div id="who">
+      <span id="dot"></span>
+      <strong>Engineer</strong>
+      <span id="state">starting</span>
+    </div>
+    <div id="winbtns">
+      <button id="hide" title="Hide">–</button>
+      <button id="quit" title="Quit">×</button>
+    </div>
+  </header>
+
+  <section id="decisions" class="hidden">
+    <h2>Needs your decision</h2>
+    <div id="decision-list"></div>
+  </section>
+
+  <nav id="tabs">
+    <button data-tab="log" class="on">Progress</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+
+  <main>
+    <section id="tab-log">
+      <div id="logmode">
+        <label><input type="radio" name="mode" value="human" checked /> Simple</label>
+        <label><input type="radio" name="mode" value="tech" /> Detailed</label>
+        <button id="clearfilter" class="link">bottom</button>
+      </div>
+      <div id="log"></div>
+    </section>
+
+    <section id="tab-settings" class="hidden">
+      <label class="field">
+        <span>Project folder — the only place he may work</span>
+        <div class="row">
+          <input id="projectDir" readonly />
+          <button id="pickDir">Choose…</button>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>Permission mode</span>
+        <select id="permissionMode">
+          <option value="ask">Ask — check with me before changing anything</option>
+          <option value="standard">Standard — normal work freely, ask before anything risky</option>
+          <option value="autonomous">Autonomous — work with minimal interruption</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Voice</span>
+        <select id="voice"></select>
+      </label>
+
+      <label class="field">
+        <span>Microphone</span>
+        <select id="mic"></select>
+      </label>
+
+      <label class="field">
+        <span>Anthropic API key — optional. Leave blank to use the Claude Code login already on this machine.</span>
+        <input id="apiKey" type="password" placeholder="sk-ant-…" />
+      </label>
+
+      <label class="field">
+        <span>Ring for this many seconds before parking a question</span>
+        <input id="ringSeconds" type="number" min="5" max="180" />
+      </label>
+
+      <div class="row">
+        <button id="openConfig" class="ghost">Open settings folder</button>
+        <button id="openProject" class="ghost">Open project folder</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <input id="typed" placeholder="Or type to your engineer…" />
+    <button id="send">Send</button>
+    <div id="controls">
+      <button id="stopSpeak" title="Stop talking">Hush</button>
+      <button id="pause" title="Pause the work">Pause</button>
+      <button id="resume" title="Carry on" class="hidden">Resume</button>
+      <button id="cancel" title="Cancel the current task">Cancel</button>
+    </div>
+  </footer>
+
+  <script src="panel.js"></script>
+</body>
+</html>

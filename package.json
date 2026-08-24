@@ -1,0 +1,37 @@
+{
+  "name": "engineer-agent",
+  "version": "1.0.0",
+  "description": "A desktop engineer sprite that listens, interviews you, and then really builds your software.",
+  "main": "src/main/main.js",
+  "author": "Engineer Agent",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "sprites": "node tools/generate-sprites.js",
+    "start": "electron .",
+    "test": "node tests/run.js",
+    "dist": "electron-builder --win portable --publish never",
+    "vendor": "node tools/build-vendor.js",
+    "test:agent": "node tests/agent-live.js",
+    "test:phone": "node tests/phone-live.js",
+    "test:talk": "node tests/conversation-live.js",
+    "test:overlay": "node tests/overlay.js",
+    "test:stt": "electron tests/stt-roundtrip.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.241",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "electron": "^38.0.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
+    "sharp": "^0.34.0"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "sharp@0.34.5": true,
+    "esbuild@0.28.2": true
+  }
+}

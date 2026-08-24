@@ -1,0 +1,73 @@
+{
+  "cell": 256,
+  "states": {
+    "entrance": {
+      "frames": 12,
+      "mouth": false
+    },
+    "sit": {
+      "frames": 6,
+      "mouth": false
+    },
+    "laptop_open": {
+      "frames": 5,
+      "mouth": false
+    },
+    "idle": {
+      "frames": 6,
+      "mouth": false
+    },
+    "listening": {
+      "frames": 6,
+      "mouth": false
+    },
+    "thinking": {
+      "frames": 6,
+      "mouth": false
+    },
+    "working": {
+      "frames": 8,
+      "mouth": false
+    },
+    "working_idle": {
+      "frames": 8,
+      "mouth": false
+    },
+    "phone_ring": {
+      "frames": 6,
+      "mouth": false
+    },
+    "phone_pickup": {
+      "frames": 5,
+      "mouth": false
+    },
+    "phone_hangup": {
+      "frames": 4,
+      "mouth": false
+    },
+    "complete": {
+      "frames": 6,
+      "mouth": false
+    },
+    "error": {
+      "frames": 5,
+      "mouth": false
+    },
+    "talking": {
+      "frames": 4,
+      "mouth": true
+    },
+    "phone_talk": {
+      "frames": 4,
+      "mouth": true
+    },
+    "summary": {
+      "frames": 4,
+      "mouth": true
+    },
+    "canonical": {
+      "frames": 1,
+      "mouth": false
+    }
+  }
+}

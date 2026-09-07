@@ -268,10 +268,26 @@ console.log('\nhealth check');
   });
 
   test('a slow agent program is flagged, and says why', () => {
-    const slow = doctor.gradeBinary('D:\\proj\\claude.exe', 40000, 'C:\\Users\\x');
-    assert.equal(slow.status, 'warn');
-    assert.ok(/drive/i.test(slow.fix), 'a warning with no remedy is not useful');
-    assert.equal(doctor.gradeBinary('C:\\Users\\x\\cli\\claude.exe', 1400, 'C:\\Users\\x').status, 'ok');
+    // Paths must suit the platform: on POSIX every absolute path has root "/",
+    // so a Windows-style pair compares equal and the cross-volume branch never
+    // fires. Asserting Windows behaviour on a macOS runner is how this failed.
+    const win = process.platform === 'win32';
+    const fast = win ? 'C:\\Users\\x\\cli\\claude.exe' : '/home/x/cli/claude';
+    const cache = win ? 'C:\\Users\\x' : '/home/x';
+
+    const slow = doctor.gradeBinary(fast, 40000, cache);
+    assert.equal(slow.status, 'warn', 'a slow start must be surfaced');
+    assert.ok(slow.fix && slow.fix.length > 10, 'a warning with no remedy is not useful');
+    assert.equal(doctor.gradeBinary(fast, 1400, cache).status, 'ok');
+  });
+
+  test('a binary on another drive is called out — Windows only, by design', () => {
+    // Drive letters are the case this detects. POSIX has one root, so the check
+    // is a deliberate no-op there rather than a bug.
+    if (process.platform !== 'win32') return;
+    const other = doctor.gradeBinary('D:\\proj\\claude.exe', 40000, 'C:\\Users\\x');
+    assert.equal(other.status, 'warn');
+    assert.ok(/drive/i.test(other.fix), 'it must name the drive as the cause');
   });
 
   test('the speech model still loading is a warning, not a failure', () => {

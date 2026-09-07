@@ -48,6 +48,11 @@ function gradeBinary(cliPath, ms, cacheRoot) {
     return finding('Agent program', 'unknown', 'the SDK is resolving its own copy',
       'Normal. Only a problem if he cannot start at all.');
   }
+  // Drive letters are what this compares, so it is a Windows check. On POSIX
+  // every absolute path shares the root "/" and this is always true — which is
+  // correct, not broken: the slow-drive problem this detects is a Windows
+  // drive-letter scenario, and localCopy() declines to copy there for the same
+  // reason.
   const local = path.parse(cliPath).root.toLowerCase() === path.parse(cacheRoot).root.toLowerCase();
   const where = local ? 'on your system drive' : `on ${path.parse(cliPath).root}`;
   const timing = Number.isFinite(ms) ? `, starts in ${(ms / 1000).toFixed(1)}s` : '';

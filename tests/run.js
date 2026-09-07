@@ -252,8 +252,21 @@ console.log('\nagent binary cache (startup speed)');
   const config = require('../src/main/config');
 
   test('the cache lives on the local disk, not in the roaming profile', () => {
-    assert.notEqual(config.cacheRoot('win32'), config.appDataRoot('win32'),
-      'a 322 MB binary must not go somewhere that roams between machines');
+    // cacheRoot('win32') reads LOCALAPPDATA, which does not exist on a Mac — so
+    // the Windows branch has to be given a Windows environment to be tested at
+    // all. Asserting it bare passes on Windows and fails on the CI runner.
+    const saved = { local: process.env.LOCALAPPDATA, roaming: process.env.APPDATA };
+    try {
+      process.env.LOCALAPPDATA = 'C:\\Users\\x\\AppData\\Local';
+      process.env.APPDATA = 'C:\\Users\\x\\AppData\\Roaming';
+      assert.equal(config.cacheRoot('win32'), 'C:\\Users\\x\\AppData\\Local');
+      assert.notEqual(config.cacheRoot('win32'), config.appDataRoot('win32'),
+        'a 322 MB binary must not go somewhere that roams between machines');
+    } finally {
+      for (const [k, v] of [['LOCALAPPDATA', saved.local], ['APPDATA', saved.roaming]]) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+    }
     assert.ok(/Caches/.test(config.cacheRoot('darwin')));
   });
 

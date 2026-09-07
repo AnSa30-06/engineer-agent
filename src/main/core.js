@@ -53,14 +53,46 @@ const priorState = () => previous;
 const entries = [];
 let seq = 0;
 
+/**
+ * Secrets that must never reach the log file.
+ *
+ * The coding agent reads files it did not write. A project with a .env, a test
+ * that prints a token, or an auth header in stderr all end up in `technical`,
+ * and that is written verbatim to a plaintext file in %APPDATA% and shown in
+ * the panel. Idea taken from OpenJarvis's credential_stripper.
+ *
+ * High-confidence prefixes only. A loose rule that redacted ordinary text would
+ * make the log useless for the thing it exists for.
+ */
+const SECRETS = [
+  [/sk-ant-[A-Za-z0-9_-]{20,}/g, 'anthropic key'],
+  [/sk-[A-Za-z0-9]{32,}/g, 'api key'],
+  [/AKIA[0-9A-Z]{16}/g, 'aws key'],
+  [/gh[pousr]_[A-Za-z0-9]{30,}/g, 'github token'],
+  [/xox[baprs]-[0-9A-Za-z-]{10,}/g, 'slack token'],
+  [/AIza[0-9A-Za-z_-]{35}/g, 'google key'],
+  [/Bearer\s+[A-Za-z0-9_\-.]{20,}/g, 'bearer token'],
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, 'private key'],
+];
+
+/** @returns the text with any secret replaced by a label saying what it was. */
+function redact(text) {
+  if (typeof text !== 'string' || !text) return text;
+  let out = text;
+  for (const [re, label] of SECRETS) out = out.replace(re, `[redacted ${label}]`);
+  return out;
+}
+
 function log({ kind = 'info', human, technical = null, level = 'info' }) {
   const entry = {
     id: ++seq,
     at: Date.now(),
     kind,
     level,                       // info | warn | error | success
-    human: human || null,
-    technical,
+    // Redacted at the one place every log line passes through, so a new caller
+    // cannot forget to do it.
+    human: redact(human) || null,
+    technical: redact(technical),
   };
   entries.push(entry);
   if (entries.length > 2000) entries.splice(0, entries.length - 2000);
@@ -119,4 +151,5 @@ module.exports = {
   getState, setState, priorState,
   log, history,
   askUser, answerDecision, pendingDecisions,
+  redact,
 };

@@ -245,6 +245,59 @@ console.log('\ninterviewer + handoff (sections 11-14)');
 const { Interview, briefFor, merge, EMPTY_SPEC } = require('../src/main/interviewer');
 
 // ---------------------------------------------------------------------------
+console.log('\nsecrets never reach the log (section 30)');
+// ---------------------------------------------------------------------------
+{
+  // The agent reads files it did not write. Anything it echoes lands in the log
+  // file in %APPDATA% and in the panel, so redaction happens at core.log().
+  const cases = [
+    ['sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'anthropic key'],
+    ['AKIAIOSFODNN7EXAMPLE', 'aws key'],
+    ['ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 'github token'],
+    ['xoxb-123456789012-abcdefghijklm', 'slack token'],
+    ['AIzaSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'google key'],
+    ['Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9', 'bearer token'],
+  ];
+
+  test('a secret in agent output is redacted before it is written', () => {
+    for (const [secret, label] of cases) {
+      const out = core.redact(`reading .env: TOKEN=${secret} done`);
+      assert.ok(!out.includes(secret), `${label} survived redaction: ${out}`);
+      assert.ok(out.includes(`[redacted ${label}]`), `wrong label for ${label}: ${out}`);
+    }
+  });
+
+  test('redaction happens inside log(), so no caller can forget it', () => {
+    const e = core.log({ kind: 'agent_stderr', human: 'sk-ant-api03-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', technical: 'AKIAIOSFODNN7EXAMPLE' });
+    assert.ok(!/sk-ant-api03-B/.test(e.human), 'the spoken line still carried a key');
+    assert.ok(!/AKIA/.test(e.technical), 'the technical line still carried a key');
+  });
+
+  test('a private key block is removed whole, not line by line', () => {
+    const pem = '-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nAAAA\n-----END RSA PRIVATE KEY-----';
+    assert.equal(core.redact(pem), '[redacted private key]');
+  });
+
+  test('ordinary text is left completely alone', () => {
+    // A rule loose enough to eat real output makes the log useless.
+    for (const plain of [
+      'npm test passed, 12 assertions',
+      'wrote src/index.js and README.md',
+      'Error: connect ECONNREFUSED 127.0.0.1:5432',
+      'the sk- prefix is discussed in the docs',
+      'AKIA is an AWS key prefix',
+    ]) {
+      assert.equal(core.redact(plain), plain, `redaction damaged normal text: ${plain}`);
+    }
+  });
+
+  test('non-strings pass through untouched', () => {
+    assert.equal(core.redact(null), null);
+    assert.equal(core.redact(undefined), undefined);
+  });
+}
+
+// ---------------------------------------------------------------------------
 console.log('\nagent binary cache (startup speed)');
 // ---------------------------------------------------------------------------
 {

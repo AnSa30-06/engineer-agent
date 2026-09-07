@@ -262,6 +262,13 @@ audio that is playing. Silence means a shut mouth.
 The handoff packet is worth a look if you want to see exactly what he was told to
 build.
 
+**Secrets are stripped before anything is written.** He reads files he did not
+write, so a `.env`, a token printed by a failing test, or an auth header in an
+error can all end up in what he reports. Every log line passes through one
+redactor first, and known credential shapes — Anthropic, OpenAI, AWS, GitHub,
+Slack, Google, bearer tokens and private-key blocks — are replaced with a label
+saying what was removed.
+
 ---
 
 ## Known limits

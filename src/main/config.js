@@ -32,6 +32,9 @@ const DEFAULTS = {
   voice: 'en-US-AndrewNeural',
   ttsRate: '+6%',
   micDeviceId: '',
+  // Said while he is idle, this is how you get his attention. Once he is in a
+  // conversation it is not needed again. Empty string disables the gate.
+  wakeWord: 'engineer',
   sttModel: 'onnx-community/moonshine-base-ONNX',
   // how long the telephone rings before the question becomes a pending decision
   ringSeconds: 25,

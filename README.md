@@ -10,6 +10,11 @@ really ran.
 
 ![the engineer](docs/overlay.png)
 
+His state, at a glance — idle, listening, thinking, working, and the telephone
+wanting you:
+
+![the dial in every state](docs/dial-states.png)
+
 ---
 
 ## Getting it
@@ -88,9 +93,21 @@ A first session sounds like this:
 Then he works, narrates what he is doing in plain English, and tells you what he
 ended up with. The file appears in your project folder.
 
-- **The pill above him says whose turn it is** — "Your turn" when he is listening
-  (with a rising chime), "Thinking…" while he works out what to say. The bar under
-  it is your microphone level, so you can see he is hearing you.
+**Say his name to get his attention** — "Engineer, build me…". The microphone is
+open in a room, so until he is addressed he ignores what he hears. Once you are
+in a conversation you do not need his name again, and **you can talk over him to
+cut him off** mid-sentence. You can change or disable the wake word in Settings.
+
+**He remembers between sessions.** What he built for you, and what you have
+already told him, survive closing the app — so he opens knowing where he left
+off instead of asking you the same questions again.
+
+- **The dial above him is his state**, at a glance and from across the room:
+  grey idle · teal listening (the ring grows with your voice) · amber thinking ·
+  blue speaking · violet working · **coral and jolting when the telephone needs
+  you**. Each state moves differently as well as being a different colour, so it
+  still reads if you are colour-blind. The chip underneath is the model he is
+  using — it changes when the coding agent takes over.
 - **Click the engineer** to open his controls and progress log.
 - **Tray icon** (bottom-right of the taskbar) for controls, the project folder, and Quit.
 - Closing the app makes him disappear completely — he only exists while it runs.
@@ -137,6 +154,23 @@ restrictive mode is not merely advertised.
 
 **Voice** — Andrew (`en-US-AndrewNeural`) by default; any English Edge neural
 voice can be chosen. **Microphone** — system default, or pick a device.
+
+**Wake word** — "engineer" by default. Clear the field to switch the gate off
+entirely and have him treat everything he hears as addressed to him.
+
+---
+
+## What he remembers
+
+Between sessions he keeps two short lists in
+`%APPDATA%\engineer-agent\memory.json`: **what he has built for you**, and
+**what you have settled** — only the things you actually decided, never the
+model's own assumptions.
+
+That is the whole store. It is deliberately small and capped, because it is read
+into the conversation every time and an unbounded history would crowd out what
+you are saying now. It is a plain file: read it, edit it, or delete it to make
+him forget.
 
 ---
 

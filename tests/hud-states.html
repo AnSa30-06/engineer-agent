@@ -1,0 +1,101 @@
+<!doctype html>
+<!--
+  Every state of the dial, side by side, over a photographic background.
+
+  It exists because the dial is the one part of this app whose correctness is
+  "does it read at a glance", and that cannot be established by reading CSS.
+  The background is deliberately busy and mid-toned: the dial has to hold its
+  own contrast over an arbitrary desktop wallpaper, and a check on a black page
+  would pass a design that vanishes on a real desktop.
+
+      npx electron tests/overlay.js     (or just open this file in a browser)
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Engineer — dial states</title>
+  <link rel="stylesheet" href="../src/sprite/sprite.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 26px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      /* a busy, mid-toned ground: the hard case for contrast */
+      background:
+        repeating-linear-gradient(45deg, #b9c6d4 0 22px, #8fa3b8 22px 44px),
+        radial-gradient(circle at 30% 30%, #f2e7d5, #6d7f96);
+      background-blend-mode: soft-light;
+    }
+    .cell {
+      position: relative;
+      width: 150px;
+      height: 175px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+    }
+    .cell > b {
+      position: absolute;
+      left: 8px;
+      bottom: 6px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #10141b;
+      background: rgba(255, 255, 255, 0.75);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    /* the dial is absolutely positioned inside its own cell here */
+    .hud { right: 16px; top: 16px; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    const STATES = ['idle', 'listening', 'thinking', 'speaking', 'working', 'ringing', 'error'];
+    const LABEL = {
+      idle: 'IDLE', listening: 'LISTENING', thinking: 'THINKING', speaking: 'SPEAKING',
+      working: 'WORKING', ringing: 'CALLING YOU', error: 'PROBLEM',
+    };
+    const NS = 'http://www.w3.org/2000/svg';
+
+    for (const s of STATES) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.innerHTML = `
+        <div class="hud state-${s}" style="position:absolute">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <g class="hud-ticks"></g>
+            <circle class="hud-track" cx="60" cy="60" r="46"/>
+            <circle class="hud-arc" cx="60" cy="60" r="46"/>
+            <circle class="hud-arc2" cx="60" cy="60" r="39"/>
+            <circle class="hud-dots" cx="60" cy="60" r="32"/>
+            <circle class="hud-core" cx="60" cy="60" r="26"/>
+            <line class="hud-sweep" x1="60" y1="60" x2="60" y2="36"/>
+            <circle class="hud-level" cx="60" cy="60" r="20"/>
+          </svg>
+          <span class="hud-word">ENGINEER</span>
+          <span class="hud-state"><i></i><b>${LABEL[s]}</b></span>
+          <span class="hud-model">HAIKU 4.5</span>
+        </div>
+        <b>${s}</b>`;
+      // listening shows a live level so the ring is visible in the capture
+      if (s === 'listening') cell.querySelector('.hud').style.setProperty('--level', '0.62');
+      const g = cell.querySelector('.hud-ticks');
+      for (let i = 0; i < 36; i++) {
+        const a = (i / 36) * Math.PI * 2;
+        const r1 = 52, r2 = i % 3 === 0 ? 58 : 55.5;
+        const l = document.createElementNS(NS, 'line');
+        l.setAttribute('x1', (60 + Math.cos(a) * r1).toFixed(2));
+        l.setAttribute('y1', (60 + Math.sin(a) * r1).toFixed(2));
+        l.setAttribute('x2', (60 + Math.cos(a) * r2).toFixed(2));
+        l.setAttribute('y2', (60 + Math.sin(a) * r2).toFixed(2));
+        g.appendChild(l);
+      }
+      document.body.appendChild(cell);
+    }
+  </script>
+</body>
+</html>

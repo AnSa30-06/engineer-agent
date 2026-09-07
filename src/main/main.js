@@ -15,6 +15,7 @@ const tts = require('./tts');
 const narrator = require('./narrator');
 const coder = require('./coder');
 const llm = require('./llm');
+const memory = require('./memory');
 const { Interview, briefFor } = require('./interviewer');
 
 const SPRITE_W = 340;
@@ -29,6 +30,7 @@ let tray = null;
 let interview = null;      // active Interview, or null
 let build = null;          // active coder run handle, or null
 let lastPacket = null;     // last handoff, for follow-up questions
+let engaged = false;       // has he been addressed yet? gates the wake word
 let ringTimer = null;
 let speechSeq = 0;
 const speechWaiters = new Map();
@@ -231,9 +233,30 @@ function warmUp() {
   tts.speak('ok').catch(() => {});
 }
 
+/**
+ * Does this utterance address him?
+ *
+ * The microphone is open in a room, and a conversation about lunch should not
+ * start a build. Once he is engaged the wake word is dropped — making someone
+ * say a name before every sentence of a conversation they are already having
+ * is the thing that makes voice assistants tiring.
+ */
+function addressedToHim(said) {
+  const wake = String(cfg().wakeWord || '').trim().toLowerCase();
+  if (!wake) return true;                       // wake word disabled in settings
+  if (!engaged) return said.toLowerCase().includes(wake);
+  return true;
+}
+
 async function handleUserSpeech(text) {
   const said = String(text || '').trim();
   if (!said) return;
+
+  if (!addressedToHim(said)) {
+    core.log({ kind: 'ignored', human: null, technical: `not addressed to him (no wake word): ${said.slice(0, 80)}` });
+    return;
+  }
+  engaged = true;
   core.log({ kind: 'user_said', human: said, technical: 'stt' });
 
   // A pending phone question takes priority: this utterance is the answer.
@@ -293,6 +316,12 @@ async function startBuild() {
   const packet = interview.handoff(dir);
   lastPacket = packet;
   interview = null;
+
+  // What the user actually decided is worth keeping past this session — it is
+  // the difference between being asked your language preference once and being
+  // asked it every time. Only "decisions" are stored: the spec's assumptions
+  // and open questions are the model's guesses, not the user's answers.
+  memory.rememberPreferences(packet.spec.decisions);
   core.log({
     kind: 'handoff',
     human: `Starting work: ${packet.spec.goal || packet.originalGoal}`,
@@ -358,11 +387,24 @@ async function finishBuild(packet, facts) {
     technical: `outcome=${facts.outcome} files=${facts.filesTouched.length} tests=${facts.testsRun} passed=${facts.testsPassed} failed=${facts.testsFailed} errors=${facts.errors}`,
   });
 
+  // Remember the build whether it worked or not: "we tried this and it failed"
+  // is more useful next session than silence.
+  memory.rememberBuild({
+    goal: packet.spec.goal || packet.originalGoal,
+    dir: packet.projectDir,
+    outcome: facts.outcome,
+    files: facts.filesTouched.length,
+  });
+
   const summary = await narrator.summarise({ spec: packet.spec, facts, transcript: facts.finalText });
   core.log({ kind: 'summary', level: clean ? 'success' : 'warn', human: summary, technical: facts.finalText ? facts.finalText.slice(0, 4000) : null });
   await say(summary, { state: 'COMPLETED' });
 
   core.setState('IDLE');
+  // The job is done, so the next thing said to him starts a NEW conversation and
+  // has to address him again. Without this the wake word only ever gates the
+  // first sentence of the whole session.
+  engaged = false;
   await say('If you want anything changed, just tell me.');
   core.setState('LISTENING');
   toSprite('listen', { on: true });
@@ -462,6 +504,8 @@ ipcMain.handle('bootstrap', () => ({
   // fetch() cannot read file:// in a renderer, so the manifest is handed over here
   manifest: readManifest(),
   paths: config.paths,
+  // shown on the dial, so which brain is running is visible rather than folklore
+  models: { fast: llm.FAST, strong: llm.STRONG },
 }));
 
 function readManifest() {
@@ -521,6 +565,11 @@ ipcMain.on('entrance-done', () => { afterEntrance(); });
 ipcMain.on('speech-ended', (_e, { id }) => {
   const resolve = speechWaiters.get(id);
   if (resolve) { speechWaiters.delete(id); resolve(); }
+});
+ipcMain.on('barge-in', () => {
+  if (core.getState() !== 'SPEAKING') return;
+  core.log({ kind: 'barge_in', human: null, technical: 'user spoke over him; stopping' });
+  stopSpeaking();
 });
 ipcMain.on('user-said', (_e, { text }) => { handleUserSpeech(text); });
 ipcMain.on('toggle-panel', () => {

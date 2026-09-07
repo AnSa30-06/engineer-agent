@@ -79,56 +79,215 @@ html, body {
 
 /* Whose turn it is. The single most important thing on screen during a
    conversation, so it is a labelled pill with a live input level, not a dot. */
-#turn {
+/* ---------------------------------------------------------------------------
+   The state dial.
+
+   Replaces a grey text pill. The reference builds in the "make your own Jarvis"
+   corpus put a circular HUD at the centre of their identity, and measured
+   against them the dial — not the capability list — is what reads as an
+   assistant at a glance.
+
+   Rules it has to obey, and why:
+   - it sits over an ARBITRARY desktop wallpaper, so it carries its own dark
+     backing rather than assuming contrast
+   - every state differs in MOTION, not only hue, so it survives colour-blindness
+   - transform and opacity only. This animates next to a speech model on the CPU,
+     so no blur, no filters, no large repaints.
+--------------------------------------------------------------------------- */
+.hud {
   position: absolute;
-  left: 6px;
-  top: 6px;
+  right: 4px;
+  top: 2px;
+  width: 118px;
+  height: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  --hue: #5BE3B0;          /* recoloured per state below */
+  --level: 0;              /* live mic level, 0..1, set from JS */
+  transition: opacity 220ms ease;
+}
+
+.hud svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* a dark disc so the dial holds contrast on a pale wallpaper */
+.hud::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 92px;
+  height: 92px;
+  margin: -46px 0 0 -46px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 12, 18, 0.92) 55%, rgba(10, 12, 18, 0.55) 78%, rgba(10, 12, 18, 0) 100%);
+}
+
+.hud-ticks line {
+  stroke: var(--hue);
+  stroke-width: 1.6;
+  opacity: 0.5;
+}
+
+.hud-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 2;
+}
+
+/* the bright arc — its length is the state's main tell */
+.hud-arc {
+  fill: none;
+  stroke: var(--hue);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-dasharray: 72 217;
+  transform-origin: 60px 60px;
+  transform: rotate(-90deg);
+}
+
+/* a slower counter-rotating amber arc, straight from the reference dial */
+.hud-arc2 {
+  fill: none;
+  stroke: #FFC65C;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 34 211;
+  opacity: 0.75;
+  transform-origin: 60px 60px;
+}
+
+.hud-dots {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1;
+  stroke-dasharray: 1 5;
+}
+
+.hud-core {
+  fill: rgba(91, 227, 176, 0.06);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.hud-sweep {
+  stroke: var(--hue);
+  stroke-width: 1.2;
+  opacity: 0;
+  transform-origin: 60px 60px;
+}
+
+/* the mic level: a ring that grows with your voice, so you can SEE he hears you */
+.hud-level {
+  fill: none;
+  stroke: var(--hue);
+  stroke-width: 2.4;
+  opacity: 0;
+  transform-origin: 60px 60px;
+  transform: scale(calc(0.62 + 0.5 * var(--level)));
+}
+
+.hud-word {
+  position: relative;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  color: #EDEFF5;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-bottom: 2px;
+}
+
+.hud-state {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 12px 7px 10px;
-  border-radius: 999px;
-  background: rgba(22, 24, 32, 0.94);
-  border: 1.5px solid var(--turn, #5BE3B0);
-  color: #EDEFF5;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  gap: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--hue);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-#turn-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--turn, #5BE3B0);
-  flex: none;
-  animation: pulse 1.6s infinite;
-}
-
-/* live microphone level — proof that he can actually hear you */
-#level {
-  width: 44px;
+.hud-state i {
+  width: 5px;
   height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.16);
-  overflow: hidden;
+  border-radius: 50%;
+  background: var(--hue);
   flex: none;
 }
 
-#level-fill {
-  display: block;
-  height: 100%;
-  width: 0%;
-  border-radius: 3px;
-  background: var(--turn, #5BE3B0);
-  transition: width 70ms linear;
+.hud-model {
+  position: relative;
+  margin-top: 3px;
+  padding: 1px 6px;
+  border: 1px solid rgba(91, 227, 176, 0.45);
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(237, 239, 245, 0.85);
+  background: rgba(10, 12, 18, 0.7);
 }
 
-/* waiting on him, not on you */
-#turn.busy { --turn: #FFC65C; }
-#turn.busy #turn-dot { animation: none; opacity: 0.9; }
-#turn.busy #level { display: none; }
+/* --- states. Each one moves differently, not just differently coloured. --- */
+
+/* IDLE — dim, still, out of the way */
+.hud.state-idle { --hue: #7C8798; opacity: 0.5; }
+.hud.state-idle .hud-arc2 { opacity: 0.25; }
+
+/* LISTENING — steady breathing ring + the live level. Your turn. */
+.hud.state-listening { --hue: #5BE3B0; }
+.hud.state-listening .hud-arc { animation: hud-spin 6s linear infinite; }
+.hud.state-listening .hud-arc2 { animation: hud-spin-back 9s linear infinite; }
+.hud.state-listening .hud-level { opacity: calc(0.25 + 0.75 * var(--level)); }
+.hud.state-listening .hud-core { animation: hud-breathe 2.6s ease-in-out infinite; }
+
+/* THINKING — fast sweep, like a radar working. Amber. */
+.hud.state-thinking { --hue: #FFC65C; }
+.hud.state-thinking .hud-arc { animation: hud-spin 1.1s linear infinite; }
+.hud.state-thinking .hud-arc2 { animation: hud-spin-back 2.4s linear infinite; }
+.hud.state-thinking .hud-sweep { opacity: 0.85; animation: hud-spin 1.1s linear infinite; }
+
+/* SPEAKING — slow confident pulse outward. Cyan. */
+.hud.state-speaking { --hue: #56CCF2; }
+.hud.state-speaking .hud-arc { animation: hud-spin 3.4s linear infinite; }
+.hud.state-speaking .hud-core { animation: hud-pulse 1.4s ease-out infinite; }
+
+/* WORKING — the agent is building. Violet: deliberately NOT the listening
+   teal, because a glance must never confuse "your turn" with "he is busy". */
+.hud.state-working { --hue: #9B8CFF; }
+.hud.state-working .hud-arc { animation: hud-spin 2.2s linear infinite; }
+.hud.state-working .hud-arc2 { animation: hud-spin-back 5s linear infinite; }
+
+/* RINGING — unmistakable: coral, fast, and the whole dial jolts */
+.hud.state-ringing { --hue: #E4572E; }
+.hud.state-ringing .hud-arc { animation: hud-spin 0.7s linear infinite; }
+.hud.state-ringing .hud-arc2 { stroke: #E4572E; animation: hud-spin-back 1s linear infinite; }
+.hud.state-ringing .hud-state { animation: hud-blink 0.6s steps(1) infinite; }
+.hud.state-ringing svg { animation: hud-jolt 0.6s ease-in-out infinite; }
+
+/* ERROR — coral, stopped dead. Nothing spins, which is the point. */
+.hud.state-error { --hue: #E4572E; }
+.hud.state-error .hud-arc2 { opacity: 0.3; }
+
+@keyframes hud-spin      { to { transform: rotate(270deg); } }
+@keyframes hud-spin-back { to { transform: rotate(-360deg); } }
+@keyframes hud-breathe   { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+@keyframes hud-pulse     { 0% { transform: scale(0.94); opacity: 1; } 100% { transform: scale(1.14); opacity: 0.25; } }
+@keyframes hud-blink     { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.25; } }
+@keyframes hud-jolt      { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1.5px); } 75% { transform: translateX(1.5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hud * { animation: none !important; }
+}
 
 .hidden { display: none !important; }
 

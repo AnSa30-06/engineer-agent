@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { Session } = require('./llm');
 const config = require('./config');
+const memory = require('./memory');
 
 const EMPTY_SPEC = {
   goal: '',
@@ -72,8 +73,16 @@ class Interview {
     this.questionsAsked = 0;
     // One process for the whole interview. A fresh query() per turn costs ~10s
     // of startup; a warm session turn costs ~2.5s (measured).
+    // What he already knows about this person, from previous sessions. It goes
+    // in the SYSTEM prompt rather than the turn so it is stated once and cannot
+    // be crowded out by a long conversation.
+    const known = memory.brief();
     this.session = new Session({
-      system: `${SYSTEM}\n\nReply with a single JSON object and nothing else. No prose, no markdown fence.`,
+      system: [
+        SYSTEM,
+        known && `\nYou have worked with this person before.\n\n${known}`,
+        '\nReply with a single JSON object and nothing else. No prose, no markdown fence.',
+      ].filter(Boolean).join('\n'),
     });
   }
 

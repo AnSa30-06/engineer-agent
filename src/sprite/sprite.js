@@ -13,9 +13,28 @@ const bubble = document.getElementById('bubble');
 const bubbleText = document.getElementById('bubble-text');
 const callBox = document.getElementById('call');
 const answerBtn = document.getElementById('answer');
-const turnPill = document.getElementById('turn');
-const turnLabel = document.getElementById('turn-label');
-const levelFill = document.getElementById('level-fill');
+const hud = document.getElementById('hud');
+const hudState = document.querySelector('#hud-state b');
+const hudModel = document.getElementById('hud-model');
+
+// The dial's tick ring, drawn once. Building it here rather than writing 36
+// <line> elements into the HTML by hand keeps the markup readable.
+(function ticks() {
+  const g = document.getElementById('hud-ticks');
+  if (!g) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * Math.PI * 2;
+    const long = i % 3 === 0;
+    const r1 = 52, r2 = long ? 58 : 55.5;
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', (60 + Math.cos(a) * r1).toFixed(2));
+    l.setAttribute('y1', (60 + Math.sin(a) * r1).toFixed(2));
+    l.setAttribute('x2', (60 + Math.cos(a) * r2).toFixed(2));
+    l.setAttribute('y2', (60 + Math.sin(a) * r2).toFixed(2));
+    g.appendChild(l);
+  }
+})();
 
 let manifest = null;
 let missingReported = 0;
@@ -279,13 +298,46 @@ function earcon(up = true) {
   } catch { /* a missing chime is not worth an error */ }
 }
 
-/** @param mode 'yours' | 'hearing' | 'busy' | null (hide) */
+/**
+ * Point the dial at a state. `mode` is kept as the caller's vocabulary so the
+ * rest of the file did not have to change:
+ *   'yours' -> LISTENING · 'hearing' -> LISTENING (with level) · 'busy' -> THINKING
+ */
+const HUD_MODE = {
+  yours:   ['state-listening', 'LISTENING'],
+  hearing: ['state-listening', 'HEARING YOU'],
+  busy:    ['state-thinking', 'THINKING'],
+};
+const HUD_STATE = {
+  STARTING: ['state-idle', 'STARTING'],
+  ENTERING: ['state-idle', 'ARRIVING'],
+  IDLE: ['state-idle', 'IDLE'],
+  LISTENING: ['state-listening', 'LISTENING'],
+  THINKING: ['state-thinking', 'THINKING'],
+  SPEAKING: ['state-speaking', 'SPEAKING'],
+  WORKING: ['state-working', 'WORKING'],
+  RINGING: ['state-ringing', 'CALLING YOU'],
+  ON_CALL: ['state-ringing', 'ON CALL'],
+  COMPLETED: ['state-working', 'DONE'],
+  ERROR: ['state-error', 'PROBLEM'],
+};
+
+function setHud(cls, label) {
+  if (!hud) return;
+  for (const c of [...hud.classList]) if (c.startsWith('state-')) hud.classList.remove(c);
+  hud.classList.add(cls);
+  if (hudState) hudState.textContent = label;
+  if (cls !== 'state-listening') setLevel(0);
+}
+
+function setLevel(v) {
+  if (hud) hud.style.setProperty('--level', String(Math.max(0, Math.min(1, v))));
+}
+
+/** @param mode 'yours' | 'hearing' | 'busy' | null */
 function setTurn(mode, label) {
-  if (!mode) { turnPill.classList.add('hidden'); return; }
-  turnPill.classList.remove('hidden');
-  turnPill.classList.toggle('busy', mode === 'busy');
-  turnLabel.textContent = label;
-  if (mode !== 'hearing') levelFill.style.width = '0%';
+  const m = HUD_MODE[mode];
+  if (m) setHud(m[0], label && mode === 'busy' ? 'THINKING' : m[1]);
 }
 
 let bubbleTimer = null;
@@ -304,6 +356,15 @@ function hideBubble() {
 // wiring
 // ---------------------------------------------------------------------------
 let stt = null;
+let models = {};
+
+/** 'claude-haiku-4-5-20251001' -> 'HAIKU 4.5'. The dial has room for two words. */
+function shortModel(id) {
+  const m = String(id || '').match(/(opus|sonnet|haiku|fable)[-_]?(\d+(?:[-.]\d+)?)?/i);
+  if (!m) return String(id || '').slice(0, 12).toUpperCase();
+  return `${m[1]}${m[2] ? ' ' + m[2].replace('-', '.') : ''}`.toUpperCase();
+}
+
 let currentState = 'STARTING';
 let listening = false;
 
@@ -317,14 +378,23 @@ function applyState(state) {
   }
   callBox.classList.toggle('hidden', state !== 'PHONE_RINGING');
 
-  // Keep the turn indicator honest about who is doing something.
-  if (state === 'THINKING') setTurn('busy', 'Thinking…');
-  else if (state === 'SPEAKING' || state === 'ON_CALL') setTurn(null);
-  else if (!listening && state !== 'LISTENING') setTurn(null);
+  // The dial follows application state directly, so it is never out of step
+  // with what he is doing. PHONE_RINGING has no SEQUENCES entry of its own
+  // name here, so it is mapped explicitly.
+  const look = state === 'PHONE_RINGING' ? ['state-ringing', 'CALLING YOU'] : HUD_STATE[state];
+  if (look) setHud(look[0], look[1]);
+
+  // Which brain is answering. The coding agent is a different, stronger model
+  // than the interviewer, and that is worth being able to see.
+  if (hudModel && models.fast) {
+    const working = ['HANDOFF', 'WORKING', 'TESTING', 'COMPLETED'].includes(state);
+    hudModel.textContent = shortModel(working ? models.strong : models.fast);
+  }
 }
 
 (async function boot() {
   const info = await window.engineer.bootstrap();
+  models = info.models || {};
   assetsPath = `file:///${info.assetsPath.replace(/\\/g, '/')}`;
   manifest = await (await fetch(`${assetsPath}/engineer/manifest.json`)).json();
 
@@ -347,15 +417,24 @@ function applyState(state) {
   stt = createSTT({
     onText: (text) => window.engineer.userSaid(text),
     onStatus: (s) => window.engineer.sttStatus(s),
-    onLevel: (v) => { if (listening) levelFill.style.width = `${Math.round(v * 100)}%`; },
+    onLevel: (v) => { if (listening) setLevel(v); },
     onSpeechStart: () => { if (listening) setTurn('hearing', 'Listening…'); },
     onSpeechEnd: () => { listening = false; setTurn('busy', 'Got that…'); },
+    // Barge-in. `amplitude` is his own playback level — the same number that
+    // drives the mouth — so the gate rises while he is actually loud.
+    getOutputLevel: () => amplitude,
+    onBargeIn: () => window.engineer.bargeIn(),
     deviceId: info.config.micDeviceId,
     model: info.config.sttModel,
   });
 
   window.engineer.onState(({ state }) => applyState(state));
-  window.engineer.onSpeakBegin(beginSpeech);
+  window.engineer.onSpeakBegin((payload) => {
+    beginSpeech(payload);
+    // Watch for the user talking over him. Measure-only: nothing said while he
+    // is speaking is ever transcribed, so his own voice cannot become input.
+    if (stt) stt.watch().catch(() => {});
+  });
   window.engineer.onSpeakChunk(addSpeechChunk);
   window.engineer.onStopAudio(() => stopAudio());
   window.engineer.onCaption(({ text }) => showBubble(text));

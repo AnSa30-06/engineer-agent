@@ -18,7 +18,16 @@ const SILENCE_MS = 550;       // trailing silence that ends an utterance
 const MIN_SPEECH_MS = 320;    // ignore coughs and clicks
 const MAX_UTTERANCE_MS = 20000;
 
-export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEnd, deviceId, model }) {
+// Barge-in: how long the user must keep talking over him before he stops, and
+// how far above the normal speech gate they must be. The margin scales with his
+// OWN output level (see the gate below) — echo cancellation removes most of his
+// voice from the microphone, but "most" is not "all", and a false barge-in is
+// the app interrupting itself mid-sentence for no reason.
+const BARGE_MS = 320;
+const BARGE_BASE = 1.6;       // multiplier on the gate while he is silent
+const BARGE_PER_OUTPUT = 2.4; // added multiplier at his full output volume
+
+export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEnd, onBargeIn, getOutputLevel, deviceId, model }) {
   let pipe = null;
   let loading = null;
   let stream = null;
@@ -26,6 +35,8 @@ export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEn
   let node = null;
   let source = null;
   let active = false;
+  let watchOnly = false;   // barge-in watch: measure, never transcribe
+  let loudMs = 0;
 
   let buffer = [];
   let speaking = false;
@@ -142,6 +153,8 @@ export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEn
   }
 
   async function start() {
+    watchOnly = false;
+    loudMs = 0;
     if (active) return;
     active = true;
     loadModel().catch(() => {});   // warm up while the user is still being greeted
@@ -178,6 +191,22 @@ export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEn
           // drive the on-screen level meter, normalised against the gate
           if (onLevel) onLevel(Math.max(0, Math.min(1, rms / (threshold * 4))));
 
+          // Barge-in watch: he is talking, so we measure only. Nothing is
+          // buffered and nothing is transcribed, which is what makes it safe —
+          // if echo cancellation lets his voice through, the worst case is a
+          // spurious interruption, never his own words fed back as input.
+          if (watchOnly) {
+            const out = typeof getOutputLevel === 'function' ? Math.max(0, Math.min(1, getOutputLevel() || 0)) : 0;
+            const gate = threshold * (BARGE_BASE + BARGE_PER_OUTPUT * out);
+            if (rms > gate) {
+              loudMs += ms;
+              if (loudMs >= BARGE_MS) { loudMs = 0; if (onBargeIn) onBargeIn(); }
+            } else {
+              loudMs = Math.max(0, loudMs - ms);   // a single loud frame is a door, not a person
+            }
+            return;
+          }
+
           if (rms > threshold) {
             if (!speaking && onSpeechStart) onSpeechStart();
             speaking = true;
@@ -206,13 +235,23 @@ export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEn
     }
   }
 
+  /** Listen only for the user talking OVER him, so he can be interrupted. */
+  async function watch() {
+    loudMs = 0;
+    if (active) { watchOnly = true; return; }
+    await start();
+    watchOnly = true;
+  }
+
   function stop() {
     active = false;
+    watchOnly = false;
+    loudMs = 0;
     buffer = [];
     speaking = false;
     speechMs = 0;
     silenceMs = 0;
   }
 
-  return { start, stop, get ready() { return !!pipe; } };
+  return { start, stop, watch, get ready() { return !!pipe; } };
 }

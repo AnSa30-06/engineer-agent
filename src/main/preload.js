@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('engineer', {
   entranceDone: () => ipcRenderer.send('entrance-done'),
   speechEnded: (id) => ipcRenderer.send('speech-ended', { id }),
   userSaid: (text) => ipcRenderer.send('user-said', { text }),
+  bargeIn: () => ipcRenderer.send('barge-in'),
   sttStatus: (s) => ipcRenderer.send('stt-status', s),
   togglePanel: () => ipcRenderer.send('toggle-panel'),
   answerCall: () => ipcRenderer.send('answer-call'),

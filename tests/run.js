@@ -17,6 +17,14 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+
+// Point the memory module at a scratch file BEFORE anything is required.
+// memory.js resolves its path once at module load, and interviewer.js requires
+// it — so setting this later in the file silently tests against the user's real
+// memory instead, which is how this was found.
+process.env.ENGINEER_MEMORY_FILE = path.join(
+  fs.mkdtempSync(path.join(os.tmpdir(), 'engineer-mem-')), 'memory.json');
 
 let passed = 0;
 let failed = 0;
@@ -235,6 +243,97 @@ test('unknown events narrate nothing rather than inventing progress', () => {
 console.log('\ninterviewer + handoff (sections 11-14)');
 // ---------------------------------------------------------------------------
 const { Interview, briefFor, merge, EMPTY_SPEC } = require('../src/main/interviewer');
+
+// ---------------------------------------------------------------------------
+console.log('\nmemory across sessions');
+// ---------------------------------------------------------------------------
+{
+  const memory = require('../src/main/memory');
+
+  test('a build survives into the next session', () => {
+    memory.reset();
+    memory.save({ builds: [], preferences: [] });
+    memory.rememberBuild({ goal: 'a word counter', dir: 'C:\\p', outcome: 'success', files: 1 });
+    memory.reset();                                  // as if the app restarted
+    assert.ok(/word counter/.test(memory.brief()), 'the next session must know what was built');
+  });
+
+  test('a failed build is remembered too, and honestly', () => {
+    memory.reset();
+    memory.save({ builds: [], preferences: [] });
+    memory.rememberBuild({ goal: 'a scraper', dir: 'C:\\p', outcome: 'error', files: 0 });
+    memory.reset();
+    assert.ok(/scraper/.test(memory.brief()));
+    assert.ok(/error/.test(memory.brief()), 'a failure must not be recorded as a success');
+  });
+
+  test('a settled preference is stored once, however often it is repeated', () => {
+    memory.reset();
+    memory.save({ builds: [], preferences: [] });
+    memory.rememberPreferences(['Prefers Python', 'no dependencies']);
+    memory.rememberPreferences(['prefers python', 'NO DEPENDENCIES', 'dark theme']);
+    const { preferences } = memory.load();
+    assert.deepEqual(preferences, ['Prefers Python', 'no dependencies', 'dark theme']);
+  });
+
+  test('memory cannot grow without limit', () => {
+    memory.reset();
+    memory.save({ builds: [], preferences: [] });
+    for (let i = 0; i < memory.MAX_BUILDS + 8; i++) memory.rememberBuild({ goal: `build ${i}`, outcome: 'success' });
+    const { builds } = memory.load();
+    assert.equal(builds.length, memory.MAX_BUILDS, 'a prompt-injected list must stay bounded');
+    assert.equal(builds[builds.length - 1].goal, `build ${memory.MAX_BUILDS + 7}`, 'the newest must survive');
+  });
+
+  test('a hand-edited or corrupt memory file cannot crash him', () => {
+    memory.reset();
+    fs.writeFileSync(process.env.ENGINEER_MEMORY_FILE, '{"builds": "not an array", "preferences": [1, null, {}]}');
+    const m = memory.load();
+    assert.deepEqual(m.builds, []);
+    assert.deepEqual(m.preferences, []);
+    assert.equal(memory.brief(), '', 'nothing known means no scaffolding in the prompt');
+  });
+
+  test('a first run adds nothing to the prompt', () => {
+    memory.reset();
+    memory.save({ builds: [], preferences: [] });
+    assert.equal(memory.brief(), '');
+  });
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nwake word (only act when spoken to)');
+// ---------------------------------------------------------------------------
+{
+  // Mirrors main.js addressedToHim. Kept in step by the assertion below, which
+  // fails if that function stops existing or stops using `engaged`.
+  const addressed = (said, wake, engaged) => {
+    const w = String(wake || '').trim().toLowerCase();
+    if (!w) return true;
+    if (!engaged) return said.toLowerCase().includes(w);
+    return true;
+  };
+
+  test('a room conversation does not start a build', () => {
+    assert.equal(addressed('did you see the game last night', 'engineer', false), false);
+  });
+  test('saying his name gets his attention', () => {
+    assert.equal(addressed('engineer, build me a word counter', 'engineer', false), true);
+    assert.equal(addressed('hey Engineer can you help', 'engineer', false), true);
+  });
+  test('mid-conversation he does not need his name again', () => {
+    assert.equal(addressed('make it Python instead', 'engineer', true), true);
+  });
+  test('an empty wake word disables the gate entirely', () => {
+    assert.equal(addressed('anything at all', '', false), true);
+  });
+  test('main.js really implements this, and really gates on engagement', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+    assert.ok(/function addressedToHim/.test(src), 'the wake-word gate is missing');
+    assert.ok(/if \(!engaged\)/.test(src), 'the gate must relax once he is engaged');
+    assert.ok(/addressedToHim\(said\)/.test(src), 'the gate must actually be called on incoming speech');
+  });
+}
 
 // The caption shows the piece being SPOKEN, so a piece dropped here is text the
 // user never hears and never reads. That is the bug this replaced: the bubble

@@ -15,10 +15,26 @@
       <button id="answer">Answer</button>
     </div>
     <canvas id="sprite" width="256" height="256"></canvas>
-    <div id="turn" class="hidden">
-      <span id="turn-dot"></span>
-      <span id="turn-label">Your turn</span>
-      <span id="level"><i id="level-fill"></i></span>
+    <!--
+      The state dial. Measured finding from the "build your own Jarvis" corpus:
+      the circular HUD is what makes those builds read as an assistant rather
+      than a window. Every state differs in MOTION as well as colour, so it
+      survives colour-blindness and a glance from across the room.
+    -->
+    <div id="hud" class="hud state-idle">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <g id="hud-ticks" class="hud-ticks"></g>
+        <circle class="hud-track" cx="60" cy="60" r="46"/>
+        <circle id="hud-arc" class="hud-arc" cx="60" cy="60" r="46"/>
+        <circle id="hud-arc2" class="hud-arc2" cx="60" cy="60" r="39"/>
+        <circle class="hud-dots" cx="60" cy="60" r="32"/>
+        <circle class="hud-core" cx="60" cy="60" r="26"/>
+        <line class="hud-sweep" x1="60" y1="60" x2="60" y2="36"/>
+        <circle id="hud-level" class="hud-level" cx="60" cy="60" r="20"/>
+      </svg>
+      <span id="hud-word" class="hud-word">ENGINEER</span>
+      <span id="hud-state" class="hud-state"><i></i><b>IDLE</b></span>
+      <span id="hud-model" class="hud-model">HAIKU</span>
     </div>
   </div>
   <script src="sprite.js" type="module"></script>

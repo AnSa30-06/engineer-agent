@@ -1,5 +1,7 @@
 # Engineer
 
+[![mac build](https://github.com/AnSa30-06/engineer-agent/actions/workflows/mac.yml/badge.svg)](https://github.com/AnSa30-06/engineer-agent/actions/workflows/mac.yml)
+
 A small engineer lives in the corner of your desktop. You tell him what you want,
 he asks the few questions he needs, then he opens his laptop and actually builds
 it. When he needs a decision from you, his telephone rings.

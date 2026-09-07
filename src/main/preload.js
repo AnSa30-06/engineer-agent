@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('engineer', {
   setConfig: (patch) => ipcRenderer.invoke('set-config', patch),
   pickDir: () => ipcRenderer.invoke('pick-dir'),
   listVoices: () => ipcRenderer.invoke('list-voices'),
+  runDoctor: () => ipcRenderer.invoke('doctor'),
   openPath: (which) => ipcRenderer.send('open-path', { which }),
   quit: () => ipcRenderer.send('quit'),
 

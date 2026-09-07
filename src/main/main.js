@@ -16,6 +16,7 @@ const narrator = require('./narrator');
 const coder = require('./coder');
 const llm = require('./llm');
 const memory = require('./memory');
+const doctor = require('./doctor');
 const { Interview, briefFor } = require('./interviewer');
 
 const SPRITE_W = 340;
@@ -31,6 +32,9 @@ let interview = null;      // active Interview, or null
 let build = null;          // active coder run handle, or null
 let lastPacket = null;     // last handoff, for follow-up questions
 let engaged = false;       // has he been addressed yet? gates the wake word
+// What the renderer last told us about the microphone and the speech model.
+// The main process cannot see either, so the health check asks it from here.
+let speech = { model: null, ready: false, error: null };
 let ringTimer = null;
 let speechSeq = 0;
 const speechWaiters = new Map();
@@ -592,6 +596,27 @@ ipcMain.on('toggle-panel', () => {
 });
 ipcMain.on('stt-status', (_e, s) => {
   core.log({ kind: 'stt', level: s.level || 'info', human: s.human || null, technical: s.technical || null });
+
+  // Track enough to answer "can he hear me?" in the health check.
+  const t = String(s.technical || '');
+  const loading = t.match(/loading speech model (\S+)/);
+  if (loading) { speech = { model: loading[1], ready: false, error: null }; }
+  else if (/model \S+ loaded/.test(t)) { speech = { ...speech, ready: true, error: null }; }
+  else if (s.level === 'error' && /STT|microphone|speech/i.test(`${s.human || ''} ${t}`)) {
+    speech = { ...speech, ready: false, error: s.human || t };
+  }
+});
+
+// The health check. Runs on demand from the panel, never on a timer — timing
+// the agent program costs a real spawn.
+ipcMain.handle('doctor', () => {
+  const findings = doctor.run({ speech });
+  const bad = findings.filter((f) => f.status === 'fail').length;
+  core.log({
+    kind: 'doctor', level: bad ? 'warn' : 'info', human: null,
+    technical: `health check: ${findings.map((f) => `${f.name}=${f.status}`).join(' ')}`,
+  });
+  return findings;
 });
 
 ipcMain.on('answer-decision', (_e, { id, answer }) => {

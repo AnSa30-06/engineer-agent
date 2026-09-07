@@ -165,6 +165,7 @@ for (const b of document.querySelectorAll('#tabs button')) {
     document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
     $('tab-log').classList.toggle('hidden', b.dataset.tab !== 'log');
     $('tab-settings').classList.toggle('hidden', b.dataset.tab !== 'settings');
+    $('tab-health').classList.toggle('hidden', b.dataset.tab !== 'health');
   };
 }
 
@@ -191,6 +192,46 @@ $('send').onclick = send;
 $('typed').onkeydown = (e) => { if (e.key === 'Enter') send(); };
 
 $('stopSpeak').onclick = () => window.engineer.control('stop-speaking');
+
+// --- health check -----------------------------------------------------------
+const HEALTH_WORD = { ok: 'OK', warn: 'Check', fail: 'Problem', unknown: 'Not known' };
+
+$('runDoctor').onclick = async () => {
+  const btn = $('runDoctor');
+  btn.disabled = true;
+  // Timing the agent program means really starting it, which is the slow part.
+  btn.textContent = 'Checking…';
+  $('health').innerHTML = '';
+  try {
+    const findings = await window.engineer.runDoctor();
+    $('health').innerHTML = '';
+    for (const f of findings) {
+      const row = document.createElement('div');
+      row.className = `finding ${f.status}`;
+      const name = document.createElement('b');
+      name.textContent = f.name;
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = HEALTH_WORD[f.status] || f.status;
+      const detail = document.createElement('div');
+      detail.className = 'detail';
+      detail.textContent = f.detail || '';
+      row.append(tag, name, detail);
+      if (f.fix) {
+        const fix = document.createElement('div');
+        fix.className = 'fix';
+        fix.textContent = f.fix;
+        row.append(fix);
+      }
+      $('health').append(row);
+    }
+  } catch (e) {
+    $('health').textContent = `The check itself failed: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run the check';
+  }
+};
 $('pause').onclick = () => { window.engineer.control('pause'); $('pause').classList.add('hidden'); $('resume').classList.remove('hidden'); };
 $('resume').onclick = () => { window.engineer.control('resume'); $('resume').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('cancel').onclick = () => window.engineer.control('cancel');

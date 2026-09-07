@@ -245,6 +245,55 @@ console.log('\ninterviewer + handoff (sections 11-14)');
 const { Interview, briefFor, merge, EMPTY_SPEC } = require('../src/main/interviewer');
 
 // ---------------------------------------------------------------------------
+console.log('\nhealth check');
+// ---------------------------------------------------------------------------
+{
+  const doctor = require('../src/main/doctor');
+  const GB = 1024 ** 3;
+
+  test('disk space is graded against what actually broke the app', () => {
+    // Measured: below about 2 GB this app fails to start at all, silently.
+    assert.equal(doctor.gradeDisk(20 * GB, 'C:\\').status, 'ok');
+    assert.equal(doctor.gradeDisk(3 * GB, 'C:\\').status, 'warn');
+    assert.equal(doctor.gradeDisk(0.5 * GB, 'C:\\').status, 'fail');
+  });
+
+  test('a check that could not run reports unknown, never ok', () => {
+    // "ok" must mean measured. Reporting a pass for something unmeasured is
+    // the failure mode a health view exists to prevent.
+    assert.equal(doctor.gradeDisk(NaN, 'C:\\').status, 'unknown');
+    assert.equal(doctor.gradeBinary(null, null, 'C:\\').status, 'unknown');
+    assert.equal(doctor.speechCheck(null).status, 'unknown');
+    assert.equal(doctor.speechCheck({ model: null }).status, 'unknown');
+  });
+
+  test('a slow agent program is flagged, and says why', () => {
+    const slow = doctor.gradeBinary('D:\\proj\\claude.exe', 40000, 'C:\\Users\\x');
+    assert.equal(slow.status, 'warn');
+    assert.ok(/drive/i.test(slow.fix), 'a warning with no remedy is not useful');
+    assert.equal(doctor.gradeBinary('C:\\Users\\x\\cli\\claude.exe', 1400, 'C:\\Users\\x').status, 'ok');
+  });
+
+  test('the speech model still loading is a warning, not a failure', () => {
+    assert.equal(doctor.speechCheck({ model: 'moonshine', ready: false }).status, 'warn');
+    assert.equal(doctor.speechCheck({ model: 'moonshine', ready: true }).status, 'ok');
+    assert.equal(doctor.speechCheck({ model: 'moonshine', error: 'no microphone' }).status, 'fail');
+  });
+
+  test('every finding carries a remedy unless it is passing', () => {
+    const samples = [
+      doctor.gradeDisk(0.5 * GB, 'C:\\'),
+      doctor.gradeBinary('D:\\x\\claude.exe', 40000, 'C:\\y'),
+      doctor.speechCheck({ model: 'm', error: 'boom' }),
+      doctor.speechCheck({ model: 'm', ready: false }),
+    ];
+    for (const f of samples) {
+      assert.ok(f.fix && f.fix.length > 10, `${f.name} (${f.status}) tells the user nothing to do`);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 console.log('\nsecrets never reach the log (section 30)');
 // ---------------------------------------------------------------------------
 {

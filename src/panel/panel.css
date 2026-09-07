@@ -111,3 +111,64 @@ footer input { flex: 1; }
 #cancel:hover { color: var(--err); border-color: var(--err); }
 
 .hidden { display: none !important; }
+
+/* --- health check ---------------------------------------------------------
+   Status is carried by a word as well as a colour: a health view that can only
+   be read by people who see colour is a poor health view. */
+#tab-health .hint {
+  margin: 0 0 12px;
+  color: #9AA3B2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#runDoctor {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(91, 227, 176, 0.45);
+  background: rgba(91, 227, 176, 0.12);
+  color: #EDEFF5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#runDoctor:disabled { opacity: 0.55; cursor: default; }
+
+#health { margin-top: 14px; }
+
+.finding {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 3px solid #7C8798;
+}
+.finding b { font-size: 13px; color: #EDEFF5; }
+.finding .tag {
+  grid-row: span 1;
+  align-self: start;
+  min-width: 62px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-align: center;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.1);
+  color: #C7CEDB;
+}
+.finding .detail,
+.finding .fix { grid-column: 2; font-size: 12px; line-height: 1.5; }
+.finding .detail { color: #9AA3B2; }
+.finding .fix { color: #C7CEDB; margin-top: 4px; }
+
+.finding.ok    { border-left-color: #5BE3B0; }
+.finding.warn  { border-left-color: #FFC65C; }
+.finding.fail  { border-left-color: #E4572E; }
+.finding.ok .tag   { background: rgba(91, 227, 176, 0.18); color: #5BE3B0; }
+.finding.warn .tag { background: rgba(255, 198, 92, 0.18); color: #FFC65C; }
+.finding.fail .tag { background: rgba(228, 87, 46, 0.2); color: #FF8A65; }

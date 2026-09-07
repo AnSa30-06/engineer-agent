@@ -176,6 +176,21 @@ him forget.
 
 ---
 
+## When something is wrong
+
+Click him → **Health**. It checks the things that have actually gone wrong
+before: whether he has a credential, whether the Claude Code files he inherits
+are readable, where his program lives and **how fast it really starts**, disk
+space, whether your project folder is writable, and whether he can hear you.
+
+![the health check](docs/health-check.png)
+
+Every problem says what to do about it. A check that could not run says so
+rather than reporting a pass — "OK" here means measured. It takes a few seconds
+because it genuinely starts his program to time it.
+
+---
+
 ## When he needs a decision
 
 Sometimes the agent genuinely needs you (*"SQLite or a plain file?"*). The

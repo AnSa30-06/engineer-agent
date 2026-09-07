@@ -28,6 +28,7 @@
   <nav id="tabs">
     <button data-tab="log" class="on">Progress</button>
     <button data-tab="settings">Settings</button>
+    <button data-tab="health">Health</button>
   </nav>
 
   <main>
@@ -38,6 +39,15 @@
         <button id="clearfilter" class="link">bottom</button>
       </div>
       <div id="log"></div>
+    </section>
+
+    <section id="tab-health" class="hidden">
+      <p class="hint">Checks the things that have actually gone wrong before — his
+        credential, the files he inherits, where his program lives and how fast it
+        starts, disk space, your project folder, and whether he can hear you.
+        It takes a few seconds, because it really starts his program to time it.</p>
+      <button id="runDoctor">Run the check</button>
+      <div id="health"></div>
     </section>
 
     <section id="tab-settings" class="hidden">

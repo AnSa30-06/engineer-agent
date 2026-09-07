@@ -152,12 +152,10 @@ export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEn
     return out;
   }
 
-  async function start() {
-    watchOnly = false;
-    loudMs = 0;
+  /** Open the microphone and the audio graph. Does NOT touch the model. */
+  async function open() {
     if (active) return;
     active = true;
-    loadModel().catch(() => {});   // warm up while the user is still being greeted
     try {
       if (!stream) {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -235,11 +233,27 @@ export function createSTT({ onText, onStatus, onLevel, onSpeechStart, onSpeechEn
     }
   }
 
-  /** Listen only for the user talking OVER him, so he can be interrupted. */
+  /** Real listening: words matter here, so the model is needed. */
+  async function start() {
+    watchOnly = false;
+    loudMs = 0;
+    // Kick the model off but do not wait for it — the energy gate works without
+    // it, so the user can start talking while it finishes loading.
+    loadModel().catch(() => {});
+    await open();
+  }
+
+  /**
+   * Listen only for the user talking OVER him, so he can be interrupted.
+   *
+   * Deliberately does NOT load the speech model. Barge-in needs loudness, never
+   * words — and loading it here is measurably harmful: it runs in the renderer
+   * alongside the audio being decoded, and it delayed the opening greeting by
+   * 38 seconds because watch() is called the moment he starts speaking.
+   */
   async function watch() {
     loudMs = 0;
-    if (active) { watchOnly = true; return; }
-    await start();
+    if (!active) await open();
     watchOnly = true;
   }
 

@@ -22,7 +22,21 @@ function appDataRoot(platform = process.platform) {
   return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
 }
 
+/**
+ * Where large regenerable files belong — a cache, not settings.
+ *
+ * Separate from appDataRoot because on Windows that is the ROAMING profile, and
+ * a 322 MB binary does not belong in something that may follow a user between
+ * machines.
+ */
+function cacheRoot(platform = process.platform) {
+  if (platform === 'darwin') return path.join(os.homedir(), 'Library', 'Caches');
+  if (platform === 'win32') return process.env.LOCALAPPDATA || appDataRoot(platform);
+  return process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+}
+
 const DIR = path.join(appDataRoot(), 'engineer-agent');
+const CACHE = path.join(cacheRoot(), 'engineer-agent');
 const FILE = path.join(DIR, 'config.json');
 
 const DEFAULTS = {
@@ -76,6 +90,6 @@ function save(patch) {
 /** Environment beats stored config, so a key never has to be written to disk. */
 const apiKey = () => process.env.ANTHROPIC_API_KEY || load().apiKey || '';
 
-const paths = { dir: DIR, file: FILE, handoffs: path.join(DIR, 'handoffs'), logs: path.join(DIR, 'logs') };
+const paths = { dir: DIR, file: FILE, handoffs: path.join(DIR, 'handoffs'), logs: path.join(DIR, 'logs'), cache: CACHE };
 
-module.exports = { load, save, apiKey, paths, appDataRoot, DEFAULTS };
+module.exports = { load, save, apiKey, paths, appDataRoot, cacheRoot, DEFAULTS };

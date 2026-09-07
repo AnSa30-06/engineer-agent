@@ -198,7 +198,10 @@ function stopSpeaking() {
 // ---------------------------------------------------------------------------
 async function startupSequence() {
   core.setState('ENTERING');
-  warmUp();   // the entrance animation is free time; spend it on slow starts
+  // Only the network warm-up happens here. The first Edge TTS call pays for DNS
+  // and a TLS handshake, and the greeting is the very next thing that needs it.
+  // It returns a promise, so the entrance is not held up by it.
+  tts.speak('ok').catch(() => {});
   core.log({ kind: 'info', human: 'Your engineer is arriving.', technical: `assets: ${ASSETS}` });
 }
 
@@ -210,6 +213,9 @@ async function afterEntrance() {
   await say("Hi, I'm your engineer. Tell me what you'd like me to build.");
   core.setState('LISTENING');
   toSprite('listen', { on: true });
+  // Only now: the greeting is out and the microphone is live, so the seconds
+  // this blocks for are seconds the user spends deciding what to say.
+  warmUp();
 }
 
 // ---------------------------------------------------------------------------
@@ -225,12 +231,20 @@ function ensureInterview() {
   return interview;
 }
 
-/** Spend the entrance animation getting everything that is slow ready. */
+/**
+ * Get the interviewer's process running before it is needed.
+ *
+ * Spawning it blocks this process for a couple of seconds, so WHEN this runs
+ * matters as much as that it runs. It is called after the greeting has been
+ * spoken and the microphone is already open: the user is deciding what to say,
+ * the renderer owns the microphone, and nothing is waiting on us.
+ *
+ * The narration session is deliberately NOT started here. It is not needed
+ * until a build finishes, minutes later, and starting it eagerly cost two
+ * seconds of silence at launch for nothing.
+ */
 function warmUp() {
-  try { llm.utility().start(); } catch { /* narration falls back to a cold call */ }
   ensureInterview();
-  // The first Edge TTS call pays for DNS and the TLS handshake; burn that now.
-  tts.speak('ok').catch(() => {});
 }
 
 /**

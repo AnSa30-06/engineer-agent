@@ -86,9 +86,55 @@ function nativeCli() {
   const ARCHIVE = `app.asar${path.sep}`;
   for (const root of [path.join(sdkDir, 'node_modules'), path.join(sdkDir, '..', '..')]) {
     const p = path.join(root.replace(ARCHIVE, `app.asar.unpacked${path.sep}`), rel);
-    if (!p.includes(ARCHIVE) && fs.existsSync(p)) return p;
+    if (!p.includes(ARCHIVE) && fs.existsSync(p)) return localCopy(p, exe);
   }
   return null;
+}
+
+/**
+ * Run the agent binary from the local disk, not from wherever the project sits.
+ *
+ * Measured on this machine: the SAME 322 MB binary answers `--version` in
+ * 1.4-6s from %LOCALAPPDATA% and 20-75s from the D: drive the project lives on.
+ * Every conversational turn pays that, and it is the whole of the "he takes
+ * forever to start" problem — nothing to do with our code or the model.
+ *
+ * So: if the binary is on a different volume from the local cache, keep a copy
+ * there and run that instead. Copying 322 MB costs one slow startup, once, and
+ * every launch afterwards is fast. A project already on the system drive skips
+ * this entirely — the copy would be pure waste.
+ *
+ * Any failure returns the original path: a slow engineer beats a broken one.
+ */
+function localCopy(src, exe) {
+  const fs = require('fs');
+  try {
+    const cacheDir = path.join(config.paths.cache, 'cli');
+    // Same volume already — running it in place is exactly as fast.
+    if (path.parse(src).root.toLowerCase() === path.parse(cacheDir).root.toLowerCase()) return src;
+
+    const stat = fs.statSync(src);
+    const dest = path.join(cacheDir, exe);
+    const stamp = path.join(cacheDir, 'source.json');
+    const want = JSON.stringify({ src, size: stat.size, mtime: stat.mtimeMs });
+
+    // Re-copy only when the SDK's binary actually changed, so an upgrade is
+    // picked up but an ordinary launch is not charged 322 MB.
+    let have = null;
+    try { have = fs.readFileSync(stamp, 'utf8'); } catch { /* first run */ }
+    if (have === want && fs.existsSync(dest)) return dest;
+
+    fs.mkdirSync(cacheDir, { recursive: true });
+    const tmp = `${dest}.partial`;
+    fs.copyFileSync(src, tmp);
+    if (fs.statSync(tmp).size !== stat.size) throw new Error('short copy');
+    fs.rmSync(dest, { force: true });
+    fs.renameSync(tmp, dest);
+    fs.writeFileSync(stamp, want);
+    return dest;
+  } catch {
+    return src;
+  }
 }
 
 function systemClaude() {
@@ -311,4 +357,4 @@ async function askJSON(prompt, opts = {}) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-module.exports = { ask, askJSON, runtime, preflight, Session, utility, FAST, STRONG };
+module.exports = { ask, askJSON, runtime, preflight, localCopy, Session, utility, FAST, STRONG };

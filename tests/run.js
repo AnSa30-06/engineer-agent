@@ -245,6 +245,84 @@ console.log('\ninterviewer + handoff (sections 11-14)');
 const { Interview, briefFor, merge, EMPTY_SPEC } = require('../src/main/interviewer');
 
 // ---------------------------------------------------------------------------
+console.log('\nagent binary cache (startup speed)');
+// ---------------------------------------------------------------------------
+{
+  const llm = require('../src/main/llm');
+  const config = require('../src/main/config');
+
+  test('the cache lives on the local disk, not in the roaming profile', () => {
+    assert.notEqual(config.cacheRoot('win32'), config.appDataRoot('win32'),
+      'a 322 MB binary must not go somewhere that roams between machines');
+    assert.ok(/Caches/.test(config.cacheRoot('darwin')));
+  });
+
+  test('a binary already on the local volume is used in place, not copied', () => {
+    // Copying 322 MB to the same disk buys nothing and costs a slow first run.
+    const onCache = path.join(config.paths.cache, 'pretend', 'claude.exe');
+    assert.equal(llm.localCopy(onCache, 'claude.exe'), onCache);
+  });
+
+  test('a binary on another volume is copied, and reused on the next call', () => {
+    const other = process.platform === 'win32'
+      ? path.parse(config.paths.cache).root.toLowerCase() === 'c:\\' ? 'D:' : 'C:'
+      : null;
+    if (!other) return;                       // single-root platforms: nothing to test
+    const src = path.join(__dirname, 'fixture-cli.exe');
+    fs.writeFileSync(src, 'not really a binary, but it has a size and an mtime');
+    try {
+      const first = llm.localCopy(src, 'fixture-cli.exe');
+      // src is on the same volume as the repo; only assert when that differs
+      if (path.parse(src).root.toLowerCase() === path.parse(config.paths.cache).root.toLowerCase()) {
+        assert.equal(first, src);
+        return;
+      }
+      assert.notEqual(first, src, 'a cross-volume binary must be copied');
+      assert.ok(fs.existsSync(first));
+      assert.equal(fs.readFileSync(first, 'utf8'), fs.readFileSync(src, 'utf8'));
+      assert.equal(llm.localCopy(src, 'fixture-cli.exe'), first, 'the second call must reuse the copy');
+      fs.rmSync(path.dirname(first), { recursive: true, force: true });
+    } finally {
+      fs.rmSync(src, { force: true });
+    }
+  });
+
+  test('an unreadable source falls back to the original path rather than failing', () => {
+    // A slow engineer beats a broken one.
+    const missing = path.join('Z:', 'nope', 'claude.exe');
+    assert.equal(llm.localCopy(missing, 'claude.exe'), missing);
+  });
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nstartup order (nothing may block the greeting)');
+// ---------------------------------------------------------------------------
+{
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+
+  test('the entrance does not spawn an agent', () => {
+    const entrance = src.slice(src.indexOf('async function startupSequence'), src.indexOf('async function afterEntrance'));
+    assert.ok(!/warmUp\(\)/.test(entrance),
+      'spawning the agent here blocks this process for seconds before the greeting');
+  });
+
+  test('the agent is warmed only after the greeting and the open microphone', () => {
+    const after = src.slice(src.indexOf('async function afterEntrance'));
+    const greet = after.indexOf("Hi, I'm your engineer");
+    const listen = after.indexOf("toSprite('listen', { on: true })");
+    const warm = after.indexOf('warmUp();');
+    assert.ok(greet !== -1 && listen !== -1 && warm !== -1, 'startup shape changed');
+    assert.ok(warm > greet, 'the greeting must be spoken before anything blocks');
+    assert.ok(warm > listen, 'the microphone must be live before anything blocks');
+  });
+
+  test('the narration session is not started eagerly', () => {
+    assert.ok(!/llm\.utility\(\)\.start\(\)/.test(src),
+      'narration is not needed until a build finishes; starting it at launch cost 2s of silence');
+  });
+}
+
+// ---------------------------------------------------------------------------
 console.log('\nmemory across sessions');
 // ---------------------------------------------------------------------------
 {

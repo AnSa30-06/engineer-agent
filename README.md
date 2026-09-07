@@ -272,6 +272,18 @@ build.
   parts most likely to need a second pass are the ones that can only be judged
   by looking: how a transparent always-on-top window behaves over Mission
   Control, and whether it steals focus. No Linux build.
+- **Keep the app on your system drive if you can.** The agent ships as a 322 MB
+  binary, and running it from a slow, synced or external drive is punishing:
+  measured on the development machine, the same binary answered `--version` in
+  **1.4-6s from the system drive and 20-75s from a D: drive**. He now keeps his
+  own copy under `%LOCALAPPDATA%\engineer-agent\cli` and runs that, so this
+  costs one slow first launch and nothing afterwards — but the project itself is
+  still faster on a local disk.
+- **Speech recognition is ready a little after he is.** The model loads once the
+  greeting has finished, which takes 15-40 seconds on a busy machine. He is
+  listening the whole time and the microphone level moves, but the first thing
+  you say is transcribed when the model arrives. It is instant from then on, and
+  from the second launch the model is cached.
 - **He takes a few seconds to answer.** A warm conversational turn is roughly
   4-5 seconds run from source and 7-8 seconds from the packaged executable.
   Measured on this machine, that is almost entirely round-trip latency to the
